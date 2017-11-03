@@ -23,9 +23,9 @@ from settings import setup_logging
 
 class MongoHelper:
 
-    def __init__(self, path_categories):
+    def __init__(self, path_categories, db_name='cdiscount'):
         self.client = MongoClient()
-        self.db = self.client.cdiscount
+        self.db = self.client[db_name]
         self.train = self.db.train
         self.val = self.db.val
         self.categories = list(pd.read_csv(path_categories)["category_id"])
@@ -73,27 +73,27 @@ class MongoHelper:
         except BulkWriteError as bwe:
             num_written = bwe.details['nInserted']
         else:
-            num_written = result['nInserted']
+            num_written = result.bulk_api_result['nInserted']
         logging.info("Written {} docs to val".format(num_written))
         written = docs[:num_written]
         remaining = docs[num_written:]
         return written, remaining
 
-    def _delete_docs(self, ids):
+    def _delete_docs(self, docs):
         """
         Delete a certain set of documents from train
         :param ids: The ids of the documents to remove
         :return: The ids of the documents *not* removed
         """
-        requests = [DeleteOne({'_id': doc_id}) for doc_id in ids]
+        requests = [DeleteOne(doc) for doc in docs]
         try:
             result = self.train.bulk_write(requests)
         except BulkWriteError as bwe:
             num_removed = bwe.details['nRemoved']
         else:
-            num_removed = result['nRemoved']
+            num_removed = result.bulk_api_result['nRemoved']
         logging.info("Deleted {} docs from train".format(num_removed))
-        remaining = ids[num_removed:]
+        remaining = docs[num_removed:]
         return remaining
 
     def move_docs_to_val(self, ids):
