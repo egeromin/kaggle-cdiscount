@@ -17,6 +17,7 @@ from pymongo import MongoClient, InsertOne, DeleteOne
 import pandas as pd
 import numpy as np
 from pymongo.errors import BulkWriteError
+from sklearn.externals import joblib
 
 from settings import setup_logging
 
@@ -30,6 +31,7 @@ class MongoHelper:
         self.val = self.db.val
         self.categories = list(pd.read_csv(path_categories)["category_id"])
         print("Loaded {} categories".format(len(self.categories)))
+        self.samples = None
 
     def select_document_samples(self, n_per_class):
         """
@@ -58,7 +60,8 @@ class MongoHelper:
                 if num_classes_missing == 0:
                     break
 
-        return samples
+        self.samples = samples
+        return self.samples
 
     def _copy_docs_to_val(self, docs):
         """
@@ -110,17 +113,47 @@ class MongoHelper:
                 written = self._delete_docs(written)
         logging.info("Moved {} docs from train to val".format(len(ids)))
 
-    def save_samples(self):
-        pass
+    def save_samples(self, path):
+        """
+        Method to save the samples as a scipy joblib object
+        """
+        joblib.dump(self.samples, path)
+
+    def load_samples(self, path):
+        """Load samples from joblib"""
+        self.samples = joblib.load(path)
+        logging.info("Loaded samples with {} categories "
+                     "and minimum {} in each category".format(len(self.samples.keys()),
+                                                              min([len(cat) for cat in self.samples.values()])))
+
+    def get_ids(self, train=True):
+        if train:
+            return reduce(operator.add, self.samples.values(), [])
+        return [doc['_id'] for doc in self.val.find({}, {'_id': 1})]
+
+    def get_photo_data(self, doc_id, photo_num, train=True):
+        """
+        Get the photo data given a doc id and a photo number.
+        This method is 'safe' in that the photo number does not
+        have to be within bounds
+        """
+        db = self.val
+        if train:
+            db = self.train
+        doc = db.find_one({'_id': doc_id})
+        num_photos = len(doc['imgs'])
+        photo_num = photo_num % num_photos  # 'safe' photo number
+        return doc["imgs"][photo_num]["picture"]
 
 
 def main():
     parser = ArgumentParser(description="Helper script to interact with cdiscount mongodb.")
     parser.add_argument("--cat", help="Path to categories",
                         default="./data/cdiscount/category_names.csv")
-    parser.add_argument("--num", help="Number of samples to produce", type=int, default=3)
-    parser.add_argument("--move", action='store_true', help="Move samples from train to val?",
-                        default=True)
+    parser.add_argument("--num", help="Number of samples to produce", type=int, default=100)
+    parser.add_argument("--move", action='store_true', help="Move samples from train to val?")
+    parser.add_argument("--save", help="Location to save image samples to",
+                        default="./data/cdiscount/samples.jl")
 
     args = parser.parse_args()
 
@@ -130,6 +163,8 @@ def main():
     if args.move:
         ids = reduce(operator.add, samples.values(), [])
         helper.move_docs_to_val(ids)
+
+    helper.save_samples(args.save)
 
 
 if __name__ == "__main__":
