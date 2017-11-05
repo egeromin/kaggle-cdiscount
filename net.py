@@ -34,6 +34,7 @@ data_transforms = {
 
 def make_model():
     model = torchvision.models.resnet34(pretrained=False, num_classes=5270)
+    model = model.cuda()
     return model
 
 
@@ -42,8 +43,8 @@ def train(path_params):
     Train the resnet from scratch using cdiscount data
     :param path_params: The path where to save the params
     """
-    dataset = CDiscountDataset('data/cdiscount', train=True)
-    dataloader = DataLoader(dataset, batch_size=256, shuffle=True, num_workers=8)
+    dataset = CDiscountDataset('data/cdiscount', train=True, transform=data_transforms['train'])
+    dataloader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=8)
 
     model = make_model()
     criterion = CrossEntropyLoss()
@@ -55,7 +56,7 @@ def train(path_params):
     for i, data in enumerate(dataloader, 1):
 
         image, label = data
-        image, label = Variable(image), Variable(label)
+        image, label = Variable(image.cuda()), Variable(label.cuda())
 
         pred = model(image)
         loss = criterion(pred, label)
@@ -64,11 +65,12 @@ def train(path_params):
         optimizer.step()
 
         if i%50 == 0:
-            loss_float = float(loss.numpy())
+            loss_float = float(loss.data[0])
             losses.append(loss_float)
 
-            if i%1000 == 0:
+            if i%200 == 0:
                 print("Current loss: {:.4f}".format(loss_float))
+                break
 
     logging.info("Saving state dict...")
     with open(path_params, "wb") as fh:
