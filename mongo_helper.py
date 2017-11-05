@@ -143,7 +143,9 @@ class MongoHelper:
         doc = db.find_one({'_id': doc_id})
         num_photos = len(doc['imgs'])
         photo_num = photo_num % num_photos  # 'safe' photo number
-        return doc["imgs"][photo_num]["picture"]
+        photo = doc["imgs"][photo_num]["picture"]
+        label = doc["category_id"]
+        return photo, label
 
 
 def main():
