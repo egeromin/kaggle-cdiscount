@@ -84,15 +84,45 @@ def train(path_params):
     plt.show()
 
 
+def test(path_params):
+    model = make_model()
+    with open(path_params, "rb") as fh:
+        state_dict = torch.load(fh)['state_dict']
+    model.load_state_dict(state_dict)
+
+    dataset = CDiscountDataset('data/cdiscount', transform=data_transforms['val'])
+    dataloader = DataLoader(dataset, batch_size=16, shuffle=False, num_workers=8)
+
+    num_correct = 0
+    for image, label in dataloader:
+        image, label = Variable(image.cuda()), Variable(label.cuda())
+
+        output = model(image)
+
+        _, preds = torch.max(output, 1)
+
+        num_correct += (preds == label).sum()
+
+    accuracy = num_correct / len(dataset)
+    return accuracy
+
+
 def main():
     parser = ArgumentParser(description="Train and evaluate resnet model.")
     parser.add_argument("--params", help="Path to file to save params",
                         default="./data/cdiscount/model_params.torch")
+    parser.add_argument("--train", action='store_true',
+                        help="Train model? Otherwise, will test")
+
     args = parser.parse_args()
 
     setup_logging()
 
-    train(args.params)
+    if args.train:
+        train(args.params)
+    else:
+        accuracy = test(args.params)
+        print("Accuracy: {:.2f}%".format(accuracy * 100))
 
 
 if __name__ == "__main__":
