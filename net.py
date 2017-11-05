@@ -53,24 +53,28 @@ def train(path_params):
     # train a single epoch
 
     losses = []
-    for i, data in enumerate(dataloader, 1):
+    i = 0
+    try:
+        for i, data in enumerate(dataloader, 1):
 
-        image, label = data
-        image, label = Variable(image.cuda()), Variable(label.cuda())
+            image, label = data
+            image, label = Variable(image.cuda()), Variable(label.cuda())
 
-        pred = model(image)
-        loss = criterion(pred, label)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            pred = model(image)
+            loss = criterion(pred, label)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        if i%50 == 0:
-            loss_float = float(loss.data[0])
-            losses.append(loss_float)
+            if i%25 == 0:
+                loss_float = float(loss.data[0])
+                losses.append(loss_float)
 
-            if i%200 == 0:
-                print("Current loss: {:.4f}".format(loss_float))
-                break
+                if i%500 == 0:
+                    print("Current loss: {:.4f}".format(loss_float))
+
+    except KeyboardInterrupt:
+        logging.info("Interrupted prematurely at iteration {}".format(i))
 
     logging.info("Saving state dict...")
     with open(path_params, "wb") as fh:
