@@ -30,6 +30,9 @@ class CDiscountDataset(Dataset):
         self.train = train
         self.ids = self.mongo_helper.get_ids(train)
 
+        classes = sorted(self.mongo_helper.samples.keys())
+        self.classes_to_idx = {classes[i]: i for i in range(len(classes))}
+
         np.random.seed(5)  # generate random photo nums for each id
         self.photo_nums = (np.random.rand(len(self.ids)) * 4.0).astype(np.uint32)
 
@@ -42,7 +45,8 @@ class CDiscountDataset(Dataset):
         picture_data, label = self.mongo_helper.get_photo_data(
             doc_id, photo_num, train=self.train
         )
+        label_id = self.classes_to_idx[label]
         img = Image.open(BytesIO(picture_data))
         if self.transform is not None:
             img = self.transform(img)
-        return img, label
+        return img, label_id

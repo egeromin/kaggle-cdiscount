@@ -66,7 +66,7 @@ class TestDatasetLoader(TestDB):
         img, label = dataset[0]
         img_data = np.array(img)
         self.assertTrue((img_data == self.example_pic_data).all())
-        self.assertEqual(label, 'cat')
+        self.assertEqual(label, 0)
 
     def test_load_val_dataset(self):
         helper = MongoHelper('./test-data/category_names.csv',
@@ -78,7 +78,7 @@ class TestDatasetLoader(TestDB):
         img, label = dataset[0]
         img_data = np.array(img)
         self.assertTrue((img_data == self.example_pic_data).all())
-        self.assertEqual(label, 'cat')
+        self.assertEqual(label, 0)
 
     def test_load_with_transform(self):
         transform = transforms.ToTensor()
@@ -91,4 +91,4 @@ class TestDatasetLoader(TestDB):
 
         example_pic_reshaped = np.rollaxis(self.example_pic_data, 2, 0)
         self.assertTrue((img_data == example_pic_reshaped).all())
-        self.assertEqual(label, 'cat')
+        self.assertEqual(label, 0)
