@@ -32,8 +32,12 @@ data_transforms = {
 }
 
 
-def make_model():
-    model = torchvision.models.resnet34(pretrained=False, num_classes=5270)
+def make_model(state_dict=None, volatile=False):
+    model = torchvision.models.resnet34(num_classes=5270)
+    if state_dict is not None:
+        model.load_state_dict(state_dict)
+    if volatile:
+        model.fc.volatile = True
     model = model.cuda()
     return model
 
@@ -85,11 +89,9 @@ def train(path_params):
 
 
 def test(path_params):
-    model = make_model()
     with open(path_params, "rb") as fh:
         state_dict = torch.load(fh)['state_dict']
-    model.load_state_dict(state_dict)
-
+    model = make_model(state_dict=state_dict, volatile=True)
     dataset = CDiscountDataset('data/cdiscount', transform=data_transforms['val'])
     dataloader = DataLoader(dataset, batch_size=16, shuffle=False, num_workers=8)
 
