@@ -37,7 +37,7 @@ def make_model(state_dict=None, volatile=False):
     if state_dict is not None:
         model.load_state_dict(state_dict)
     if volatile:
-        model.fc.volatile = True
+        model.conv1.volatile = True
     model = model.cuda()
     return model
 
@@ -89,23 +89,50 @@ def train(path_params):
 
 
 def test(path_params):
+    """
+    Test the model on a pretrained net
+    :param path_params: The path to the saved weights and biases
+    :return: The accuracy on the validation set
+    """
+    dataset = CDiscountDataset('data/cdiscount', transform=data_transforms['val'])
+    batch_size = 16
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=8)
+
     with open(path_params, "rb") as fh:
         state_dict = torch.load(fh)['state_dict']
-    model = make_model(state_dict=state_dict, volatile=True)
-    dataset = CDiscountDataset('data/cdiscount', transform=data_transforms['val'])
-    dataloader = DataLoader(dataset, batch_size=16, shuffle=False, num_workers=8)
+    model = make_model(state_dict, volatile=True)  # volatile is required
 
+    criterion = CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters())  # for some reason, this is also required to prevent memory blow up?!
+
+    # todo - why does memory blow up with certain settings?
+
+    i = 0
     num_correct = 0
-    for image, label in dataloader:
-        image, label = Variable(image.cuda()), Variable(label.cuda())
+    try:
+        for i, data in enumerate(dataloader, 1):
 
-        output = model(image)
+            image, label = data
+            image, label = Variable(image.cuda()), Variable(label.cuda())
 
-        _, preds = torch.max(output, 1)
+            output = model(image)
+            loss = criterion(output, label)
 
-        num_correct += (preds == label).sum()
+            _, preds = torch.max(output.data, 1)
+            num_correct += torch.sum(preds == label.data)
 
-    accuracy = num_correct / len(dataset)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        num_processed = len(dataset)
+
+    except KeyboardInterrupt:
+        logging.info("Interrupted prematurely at iteration {}".format(i))
+        num_processed = i * batch_size
+
+    accuracy = num_correct / num_processed
+
     return accuracy
 
 
