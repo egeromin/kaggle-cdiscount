@@ -94,7 +94,7 @@ def test(path_params):
     :param path_params: The path to the saved weights and biases
     :return: The accuracy on the validation set
     """
-    dataset = CDiscountDataset('data/cdiscount', transform=data_transforms['val'])
+    dataset = CDiscountDataset('data/cdiscount', train=False, transform=data_transforms['val'])
     batch_size = 16
     dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=8)
 
